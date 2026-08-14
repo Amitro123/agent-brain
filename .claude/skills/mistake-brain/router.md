@@ -4,24 +4,25 @@ Invoked by `/mistake-brain route`. Goal: take every entry in `MISTAKES.md` still
 
 ## Procedure
 
-MISTAKES.md is append-only and never shrinks — routed and promoted entries stay in it forever, they just get their `Status` flipped in place. That means a full read of the file gets more expensive every month, even though only a shrinking fraction of it (the still-unrouted entries) is ever relevant to a route pass. Don't read the whole file. Instead:
+MISTAKES.md is append-only — routed and promoted entries stay in it, they just get their `Status` flipped in place. Left unchecked that means both the file and the cost of reading it grow forever, even though only a shrinking fraction of it (the still-unrouted entries) is ever relevant to a route pass. Two independent fixes, run in order:
 
-1. `Grep` `MISTAKES.md` for the pattern `Status: unrouted` with 5 lines of context before each match (`-B 5`, content mode). Each match's context block is a complete entry — header, all fields, through the `Status` line — so this pulls back exactly the entries that need routing and nothing else. If there are no matches, say so and stop — nothing to do.
-2. For each unrouted entry, in oldest-to-newest order (so earlier context isn't lost if two entries are related), apply the decision tree below to pick exactly one PARA category and destination file. Do this classification for *all* pending entries before writing anything.
-3. Group the classified entries by destination file. For each destination file touched by one or more entries (create it if it doesn't exist yet, following the format in that folder's README.md): read it once, then write all of that file's new lesson blocks in a single edit — not a separate read-then-edit per entry. If three entries all land in `Areas/ci.md`, that's one read and one edit of `Areas/ci.md`, not three. Each lesson block:
+1. Run `python .claude/skills/mistake-brain/scripts/compose_mistakes.py MISTAKES.md` first. This is a mechanical, no-judgment-required step — the script itself decides whether the file is even over its line threshold (default 400 lines) and, if so, moves the oldest already-`routed`/`promoted` entries (never `unrouted` ones — those have no other copy yet) into a single `MISTAKES-archive.md`. Below threshold, it's a no-op. This keeps the active file bounded by size, not by an agent tracking dates or deciding what still "matters" — that judgment call is exactly the kind of thing worth keeping out of a routine pass, since it just adds cost without a payoff (see `promote.md` for the one tradeoff this creates).
+2. `Grep` `MISTAKES.md` for the pattern `Status: unrouted` with 5 lines of context before each match (`-B 5`, content mode). Each match's context block is a complete entry — header, all fields, through the `Status` line — so this pulls back exactly the entries that need routing and nothing else. If there are no matches, say so and stop — nothing to do.
+3. For each unrouted entry, in oldest-to-newest order (so earlier context isn't lost if two entries are related), apply the decision tree below to pick exactly one PARA category and destination file. Do this classification for *all* pending entries before writing anything.
+4. Group the classified entries by destination file. For each destination file touched by one or more entries (create it if it doesn't exist yet, following the format in that folder's README.md): read it once, then write all of that file's new lesson blocks in a single edit — not a separate read-then-edit per entry. If three entries all land in `Areas/ci.md`, that's one read and one edit of `Areas/ci.md`, not three. Each lesson block:
    ```md
    ## [YYYY-MM-DD] <short title, can reuse the MISTAKES.md title>
    <the prevention rule, rewritten as an imperative instruction, 1-2 sentences>
-   Source: MISTAKES.md entry [YYYY-MM-DD HH:MM] <title>
+   Source: mistake log entry [YYYY-MM-DD HH:MM] <title>
    ```
-   Insert newest-first within that file too.
-4. Go back to `MISTAKES.md` and, for each routed entry, use a targeted `Edit` to update its two fields in place (nothing else in the entry changes) — `Edit` sends only the diff, not the whole file, so this stays cheap regardless of how large MISTAKES.md has grown:
+   Insert newest-first within that file too. Cite the entry by date and title, not by file path — `compose_mistakes.py` may later move the entry itself from `MISTAKES.md` into `MISTAKES-archive.md`, and the citation should stay meaningful either way.
+5. Go back to `MISTAKES.md` and, for each routed entry, use a targeted `Edit` to update its two fields in place (nothing else in the entry changes) — `Edit` sends only the diff, not the whole file, so this stays cheap regardless of how large MISTAKES.md has grown:
    ```md
    - **PARA route:** <Project|Area|Resource|Archive>: <file path>
    - **Status:** routed
    ```
-5. After all entries are processed, update `.claude/agent-memory/<agent>/MEMORY.md`: for each PARA file you touched, add or refresh its one-line index entry (summary, lesson count, last-updated date). This is a full regeneration of that file's line, not an append — the index should always reflect current state, not history.
-6. Report a short summary to the user: how many entries were routed and where. Don't ask for confirmation for this pass — routing into `.agent-brain/` is low-stakes and easily corrected (see SKILL.md's Safety section — the confirmation gate is only for `promote`).
+6. After all entries are processed, update `.claude/agent-memory/<agent>/MEMORY.md`: for each PARA file you touched, add or refresh its one-line index entry (summary, lesson count, last-updated date). This is a full regeneration of that file's line, not an append — the index should always reflect current state, not history.
+7. Report a short summary to the user: how many entries were routed and where (and, if step 1 archived anything, mention that too). Don't ask for confirmation for this pass — routing into `.agent-brain/` is low-stakes and easily corrected (see SKILL.md's Safety section — the confirmation gate is only for `promote`).
 
 ## Decision tree
 

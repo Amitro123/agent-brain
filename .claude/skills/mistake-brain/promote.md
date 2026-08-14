@@ -4,6 +4,8 @@ Invoked by `/mistake-brain promote`. Goal: catch the failures that keep happenin
 
 The reasoning: a lesson sitting in `.agent-brain/Areas/ci.md` only helps if something reads that file before touching CI. A rule in CLAUDE.md is read every session, unconditionally. That's a much stronger guarantee, which is exactly why it needs a much higher bar — three independent failures with the same root cause, not one bad afternoon.
 
+**Scope tradeoff, by design:** `check_repetition.py` only scans the active `MISTAKES.md`, never `MISTAKES-archive.md` (see `router.md` step 1 / `scripts/compose_mistakes.py`). This means a root cause that repeats with a very long gap — long enough that its earlier instances got archived out before this run — won't be caught automatically. That's an accepted tradeoff, not an oversight: scanning the archive too would mean re-reading unboundedly growing history on every `promote` run, which is exactly the cost `compose_mistakes.py` exists to avoid. If you suspect an old, archived pattern is recurring, grep `MISTAKES-archive.md` by hand rather than folding it into the routine scan.
+
 ## Procedure
 
 1. Run the repetition scanner from the repo root:

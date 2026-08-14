@@ -23,7 +23,8 @@ dream = periodic reflection across all of the above, run occasionally, not per-f
 
 | Path | Role |
 |---|---|
-| `MISTAKES.md` (repo root) | Raw, chronological log. Newest first. Append-only — never rewrite past entries, only update their `Status`/`PARA route` fields. |
+| `MISTAKES.md` (repo root) | Active, chronological log. Newest first. Append-only — never rewrite past entries, only update their `Status`/`PARA route` fields. |
+| `MISTAKES-archive.md` (repo root) | Overflow for already-routed/promoted entries, moved out automatically by `scripts/compose_mistakes.py` once `MISTAKES.md` crosses a line threshold, so the active log stays a manageable size. One file, not one per period — see `router.md` step 1. |
 | `.agent-brain/<agent>/Projects/*.md` | Lessons tied to a specific, currently active project or feature. |
 | `.agent-brain/<agent>/Areas/*.md` | Lessons tied to an ongoing responsibility (auth, CI, DB migrations...) that never really finishes. |
 | `.agent-brain/<agent>/Resources/*.md` | General, reusable principles that would hold true in a different codebase too. |
