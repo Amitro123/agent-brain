@@ -4,16 +4,18 @@ Invoked by `/mistake-brain route`. Goal: take every entry in `MISTAKES.md` still
 
 ## Procedure
 
-1. Read `MISTAKES.md` fully. Collect every entry where `Status: unrouted`. If there are none, say so and stop — nothing to do.
-2. For each unrouted entry, in oldest-to-newest order (so earlier context isn't lost if two entries are related), apply the decision tree below to pick exactly one PARA category.
-3. Append a short lesson to the chosen file (create the file if it doesn't exist yet, following the format in that folder's README.md):
+MISTAKES.md is append-only and never shrinks — routed and promoted entries stay in it forever, they just get their `Status` flipped in place. That means a full read of the file gets more expensive every month, even though only a shrinking fraction of it (the still-unrouted entries) is ever relevant to a route pass. Don't read the whole file. Instead:
+
+1. `Grep` `MISTAKES.md` for the pattern `Status: unrouted` with 5 lines of context before each match (`-B 5`, content mode). Each match's context block is a complete entry — header, all fields, through the `Status` line — so this pulls back exactly the entries that need routing and nothing else. If there are no matches, say so and stop — nothing to do.
+2. For each unrouted entry, in oldest-to-newest order (so earlier context isn't lost if two entries are related), apply the decision tree below to pick exactly one PARA category and destination file. Do this classification for *all* pending entries before writing anything.
+3. Group the classified entries by destination file. For each destination file touched by one or more entries (create it if it doesn't exist yet, following the format in that folder's README.md): read it once, then write all of that file's new lesson blocks in a single edit — not a separate read-then-edit per entry. If three entries all land in `Areas/ci.md`, that's one read and one edit of `Areas/ci.md`, not three. Each lesson block:
    ```md
    ## [YYYY-MM-DD] <short title, can reuse the MISTAKES.md title>
    <the prevention rule, rewritten as an imperative instruction, 1-2 sentences>
    Source: MISTAKES.md entry [YYYY-MM-DD HH:MM] <title>
    ```
    Insert newest-first within that file too.
-4. Go back to the MISTAKES.md entry and update its two fields in place (nothing else in the entry changes):
+4. Go back to `MISTAKES.md` and, for each routed entry, use a targeted `Edit` to update its two fields in place (nothing else in the entry changes) — `Edit` sends only the diff, not the whole file, so this stays cheap regardless of how large MISTAKES.md has grown:
    ```md
    - **PARA route:** <Project|Area|Resource|Archive>: <file path>
    - **Status:** routed

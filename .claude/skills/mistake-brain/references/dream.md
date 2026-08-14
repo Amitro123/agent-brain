@@ -8,7 +8,7 @@ Invoked by `/mistake-brain dream`, name and spirit borrowed from [agent-brain](h
 
 ## Procedure
 
-1. Read `.claude/agent-memory/<agent>/MEMORY.md` fully, then read every file it indexes across all four PARA folders. Also skim `MISTAKES.md` for anything still `unrouted` (flag it — dream doesn't route on its own, but should tell the user routing is overdue).
+1. Read `.claude/agent-memory/<agent>/MEMORY.md` fully — it lists a last-updated date per PARA file and, at the bottom, the date of the last dream pass. Only fully read files whose last-updated date is newer than the last dream date (or that have never been dreamt over yet); for everything else, trust MEMORY.md's existing one-line summary rather than re-reading a file that hasn't changed since you last looked at it. This keeps a dream pass proportional to what's actually changed, not to the total size of the memory. Also `Grep` `MISTAKES.md` for `Status: unrouted` (same targeted approach as `router.md`, not a full read) to flag any pending routing without loading the whole log.
 
 2. Look for, and note as findings (don't act on any of these without asking — see below):
    - **Stale Projects**: a Project file whose project appears finished, merged, or abandoned (no recent related activity, or the user mentions it's done). Candidate to move to Archives, or to Areas if its lessons turned out to be general rather than project-specific.
