@@ -4,35 +4,37 @@ Invoked by `/mistake-brain promote`. Goal: catch the failures that keep happenin
 
 The reasoning: a lesson sitting in `.agent-brain/Areas/ci.md` only helps if something reads that file before touching CI. A rule in CLAUDE.md is read every session, unconditionally. That's a much stronger guarantee, which is exactly why it needs a much higher bar — three independent failures with the same root cause, not one bad afternoon.
 
-**Scope tradeoff, by design:** `check_repetition.py` only scans the active `MISTAKES.md`, never `MISTAKES-archive.md` (see `router.md` step 1 / `scripts/compose_mistakes.py`). This means a root cause that repeats with a very long gap — long enough that its earlier instances got archived out before this run — won't be caught automatically. That's an accepted tradeoff, not an oversight: scanning the archive too would mean re-reading unboundedly growing history on every `promote` run, which is exactly the cost `compose_mistakes.py` exists to avoid. If you suspect an old, archived pattern is recurring, grep `MISTAKES-archive.md` by hand rather than folding it into the routine scan.
+**Scope tradeoff, by design (amended below):** `check_repetition.py` only scans the active `MISTAKES.md`, never `MISTAKES-archive.md` (see `router.md` step 1 / `scripts/compose_mistakes.py`). A root cause that repeats with a very long gap — long enough that its earlier instances got archived out before this run — won't be caught by the script alone. Scanning the full archive on every run would reintroduce the unbounded-cost problem `compose_mistakes.py` exists to solve, so that's still off the table. **Amendment:** step 2 below adds a cheap, targeted fallback for the specific case of a 2-instance active cluster, instead of leaving that case to manual judgment. This is a deliberate addition to the original tradeoff, not a silent expansion of scope — a cluster that's genuinely a lone repeat with no archive match still gets left alone, exactly as before.
 
 ## Procedure
 
-1. Run the repetition scanner from the repo root:
+1. Run the repetition scanner from the repo root, asking for pairs as well as full triples so step 2 has something to check against the archive:
    ```bash
-   python .claude/skills/mistake-brain/scripts/check_repetition.py MISTAKES.md --json
+   python .claude/skills/mistake-brain/scripts/check_repetition.py MISTAKES.md --min-count 2 --json
    ```
-   This groups all MISTAKES.md entries (routed or not — promotion looks at the whole log, not just fresh ones) by similarity of their `Root cause` field and reports every group with 3 or more members, along with the entry titles/dates and a representative root-cause snippet.
+   This groups all MISTAKES.md entries (routed or not — promotion looks at the whole log, not just fresh ones) by similarity of their `Root cause` field. Split the result into two buckets: groups with 3+ members (already qualify) and groups with exactly 2 (candidates for step 2's archive check). Discard groups of 1 — nothing to do with those.
 
-2. If there are no groups ≥3, tell the user "no root cause has repeated 3+ times yet" and stop. Don't force a promotion out of 2 similar-but-not-quite entries — that's what makes this signal trustworthy.
+2. **Archive fallback, for each 2-member group only:** pull 2-4 salient keywords out of the group's representative root-cause text (skip stopwords/filler — keep the specific nouns/verbs that would identify this failure, e.g. "idempotency key", "payment retry"). `Grep` `MISTAKES-archive.md` for those keywords (case-insensitive, content mode, a few lines of context) — this is a targeted lookup, not a full read, so it doesn't reintroduce the cost the archive split was meant to avoid. If a hit's `Root cause` field is describing the same failure (use judgment — same mechanism, not just an incidental word overlap), treat the pair as having reached 3: the 2 active entries plus this archived one. Carry it forward into step 3 like any other qualifying group, but mark the archived entry distinctly in the evidence (e.g. "(archived)") so the approval prompt in step 4 is honest about where it came from. If no archive hit qualifies, drop the 2-group — it stays below threshold, exactly as the original design intended.
 
-3. For each qualifying group, draft a candidate rule:
+3. If there are no groups that qualify (3+ active, or 2 active + 1 archived match), tell the user "no root cause has repeated 3+ times yet" and stop. Don't force a promotion out of 2 similar-but-not-quite entries with no archive corroboration — that's what makes this signal trustworthy.
+
+4. For each qualifying group, draft a candidate rule:
    - Write it as a single imperative sentence, the way you'd want to read it in CLAUDE.md — not a description of the bug, an instruction for next time. ("Before running a DB migration in CI, check for an existing lock file" — not "CI migrations sometimes fail due to lock contention.")
    - Decide scope: if the repeated root cause is genuinely general (would apply regardless of which part of the codebase you're in), it's a CLAUDE.md candidate. If it's scoped to one area (only matters for auth code, only matters for the frontend build), it belongs in `.claude/rules/<area-slug>.md` instead — check whether a rules file for that area already exists before creating a new one.
    - Cite the evidence: list the specific MISTAKES.md entries (date + title) that justify this rule. This is what makes it a proposal grounded in repetition, not a guess.
 
-4. Present each candidate to the user for approval — **do not write anything yet**. Show:
+5. Present each candidate to the user for approval — **do not write anything yet**. Show:
    - The exact rule text.
    - Exactly where it would go (which file, and whether it's a new file or an addition to an existing one).
-   - The evidence list.
+   - The evidence list (including any archived entry pulled in by step 2, labeled as such).
 
    Check `AGENT_AUTO_IMPROVE` first (`echo $AGENT_AUTO_IMPROVE`): if it's not `1`, this presentation is mandatory and you must wait for an explicit yes/no per candidate before writing anything — see SKILL.md's Safety section for why this gate exists and isn't optional by default. If `AGENT_AUTO_IMPROVE=1`, you may write directly, but still show what you wrote afterward so it's visible, not silent.
 
-5. On approval, write the rule:
+6. On approval, write the rule:
    - **CLAUDE.md**: append under an existing `## Rules` heading if one exists, otherwise create one. Keep the file's existing structure and tone — don't reformat unrelated parts of the file.
    - **.claude/rules/<slug>.md**: create or append to the area-specific file, one rule per bullet.
 
-6. After writing, close the loop on the source entries: for each MISTAKES.md entry that justified the rule, update its `Status` field to `promoted` (leave `PARA route` as-is — promotion doesn't undo routing). Then add one line to `.claude/agent-memory/<agent>/MEMORY.md` under "Rules promoted so far" recording the rule, where it went, and which entries justified it — this is the audit trail back from "why does this rule exist" to the actual failures.
+7. After writing, close the loop on the source entries: for each MISTAKES.md entry that justified the rule, update its `Status` field to `promoted` (leave `PARA route` as-is — promotion doesn't undo routing). An archived entry pulled in by step 2 doesn't need a live-file edit — it already recorded its justification when it was originally routed; note it in MEMORY.md's evidence trail instead (next). Then add one line to `.claude/agent-memory/<agent>/MEMORY.md` under "Rules promoted so far" recording the rule, where it went, and which entries justified it (active and archived alike) — this is the audit trail back from "why does this rule exist" to the actual failures.
 
 ## What NOT to do
 
@@ -40,3 +42,4 @@ The reasoning: a lesson sitting in `.agent-brain/Areas/ci.md` only helps if some
 - Don't silently rewrite or merge existing CLAUDE.md rules while you're in there for an unrelated promotion — scope your edit to the addition you proposed.
 - Don't treat "the user said yes once before" as standing approval for future promotions — each candidate gets its own explicit confirmation, every run, unless `AGENT_AUTO_IMPROVE=1` is set.
 - Don't invent a root-cause grouping the scanner didn't find in order to hit the threshold faster — if two failures feel related but the scanner split them into different groups, that's a signal the root causes aren't actually the same; describing them more precisely (not lumping them together) is the fix.
+- Don't let step 2's archive fallback turn into a full archive read "just to be thorough" — it's a targeted keyword grep against 2-member groups only. A 1-member active entry doesn't get an archive check at all; that's still outside this amendment's scope.

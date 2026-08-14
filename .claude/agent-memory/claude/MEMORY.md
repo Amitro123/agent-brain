@@ -8,7 +8,8 @@ Format per line: `- [PARA-type] file — one-line summary (N lessons, last updat
 - [Project] Projects/mistake-brain-skill.md — bugs found while building/testing the mistake-brain skill itself (3 lessons, last updated 2026-08-14)
 
 ## Areas
-_(none yet)_
+- [Area] Areas/payments.md — retrying payment API calls without idempotency keys causes duplicate charges/refunds [test fixture data] (3 lessons, last updated 2026-08-14)
+- [Area] Areas/ci.md — CI retry wrapper doesn't wait for shared-resource locks before retrying flaky tests [test fixture data] (3 lessons, last updated 2026-08-14)
 
 ## Resources
 _(none yet)_
@@ -17,7 +18,13 @@ _(none yet)_
 _(none yet)_
 
 ## Rules promoted so far
-_(none yet — see CLAUDE.md and .claude/rules/ for the live rules; this section just tracks provenance back to the MISTAKES.md entries that justified each one)_
+- **.claude/rules/payments.md** — "Attach an idempotency key to any payment API call before allowing a retry..." — justified by MISTAKES.md entries [2026-08-14 22:01], [22:03], [22:05] (3x, gate approved interactively 2026-08-14)
+- **CLAUDE.md Rules** — "Before retrying a flaky test that touches a shared resource, wait for confirmation the previous attempt's lock has been released." — justified by MISTAKES.md entries [2026-08-14 22:10], [22:12], [22:14] (3x, written under AGENT_AUTO_IMPROVE=1 2026-08-14, no interactive approval)
 
 ## Last dream
-_(never run — see `.claude/skills/mistake-brain/references/dream.md`)_
+**2026-08-14** — first-ever dream pass. All 3 PARA files were read in full (none had been dreamt over before, so nothing was eligible to skip yet — see the 2026-08-14 follow-up dream below for the skip logic actually kicking in). Findings:
+1. **Cross-cutting principle, Resource candidate:** `Areas/payments.md` ("attach an idempotency key before retrying") and `Areas/ci.md` ("wait for lock release before retrying") independently converged on the same higher-level principle — don't blindly retry an operation without confirming the previous attempt's side effects have settled. Not promoted to a Resource yet (only 2 Areas so far, and both are `[test fixture data]`); worth revisiting once real (non-fixture) entries land in either file.
+2. **No stale Projects, no oversized Areas** — everything's fresh, single-topic, and small (3 lessons each).
+3. **Tool gap surfaced and logged:** `check_repetition.py` doesn't exclude already-`promoted` entries, so it re-flags them as fresh candidates on every future scan — logged as a new MISTAKES.md entry (2026-08-14 22:30), left unrouted per this pass's own scope (dream doesn't route on its own).
+4. **A second grep gap surfaced and logged, then fixed inline:** the unrouted-detection pattern was also matching quoted example text inside another entry's free-text field. Anchored the pattern to the full line in `router.md` and this file; verified 2 real unrouted entries match now (0, then 2 after this pass's own findings were logged), 0 false positives.
+5. **2 entries still unrouted** as of this pass (the two findings above) — routing is overdue; flagged, not auto-routed, per this command's scope.
