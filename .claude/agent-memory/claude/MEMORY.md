@@ -5,7 +5,7 @@ This is the entry point into this agent's PARA memory (`.agent-brain/claude/`). 
 Format per line: `- [PARA-type] file — one-line summary (N lessons, last updated YYYY-MM-DD)`
 
 ## Projects
-_(none yet)_
+- [Project] Projects/mistake-brain-skill.md — bugs found while building/testing the mistake-brain skill itself (3 lessons, last updated 2026-08-14)
 
 ## Areas
 _(none yet)_
