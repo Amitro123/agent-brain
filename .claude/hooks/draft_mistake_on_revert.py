@@ -14,6 +14,15 @@ diffing against git history / semantic understanding, which isn't a
 hook's job). Bash git commands are the one place a mistake-shaped event
 is mechanically detectable without judgment.
 
+Always drafts `Type: mistake` (see entry_block below) and only ever
+that - never success/decision/handoff. Those three types are inherently
+judgment calls about what happened and why (was this worth repeating?
+was this a real decision? is this a handoff?), which a regex over a
+command string cannot make; a revert-like git command is the one signal
+in this whole skill that's unambiguous enough to draft without judgment,
+and it only ever indicates a mistake happened, never the other three
+types. See references/format-spec.md's Type field for the full schema.
+
 The resulting entry is deliberately low-detail - a draft, not a real
 log entry - since a hook has no access to *why* the revert happened,
 only that it did. `/mistake-brain route` (or a human) fills in the real
