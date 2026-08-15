@@ -8,4 +8,4 @@ Log mistakes in MISTAKES.md (what happened, root cause, consequence, prevention 
 
 ## Rules
 
-- Before retrying a flaky test that touches a shared resource (a DB lock, a migration, a seed-data fixture), wait for confirmation the previous attempt's lock has been released instead of retrying immediately.
+_(no promoted rules yet — populated by `/mistake-brain promote` after a root cause repeats 3+ times, always with explicit approval first)_

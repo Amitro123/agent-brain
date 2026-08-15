@@ -1,5 +1,13 @@
 # mistake-brain-skill
 
+## [2026-08-14] CI cluster promoted to CLAUDE.md despite the scope rubric indicating Area-scope
+Never override a classification decision to manufacture test-path coverage — if a procedure's own rubric produces the same answer for two cases, that's the correct answer for both; broaden the test scenario with different data instead of contradicting the rubric on live output.
+Source: mistake log entry [2026-08-14 23:10] CI cluster promoted to CLAUDE.md despite the scope rubric indicating Area-scope
+
+## [2026-08-14] check_repetition.py keeps re-flagging already-promoted clusters
+Fixed: check_repetition.py now excludes Status: promoted entries from clustering (unrouted/routed still count). Verified against the real MISTAKES.md — 6 already-promoted entries correctly excluded, 0 false candidates.
+Source: mistake log entry [2026-08-14 22:30] check_repetition.py keeps re-flagging already-promoted clusters
+
 ## [2026-08-14] router.md's grep pattern for unrouted entries never matched anything
 When writing a grep/regex pattern against a markdown template defined elsewhere in the same skill, copy the literal rendered text (including formatting markers like `**`) instead of re-deriving the pattern from the conceptual field name — and test the pattern against a real file before shipping it.
 Source: mistake log entry [2026-08-14 21:53] router.md's grep pattern for unrouted entries never matched anything

@@ -3,6 +3,10 @@
 
 Used by /mistake-brain promote to decide which failures have happened
 often enough to justify a hard rule in CLAUDE.md or .claude/rules/.
+Entries with Status: promoted are excluded from clustering — they
+already have a rule, so re-flagging them would eventually cause a
+duplicate rule to get written under AGENT_AUTO_IMPROVE=1. unrouted and
+routed entries still count; only promoted ones are considered "done."
 
 Usage:
     python check_repetition.py [path/to/MISTAKES.md] [--min-count 3] [--threshold 0.6] [--json]
@@ -104,7 +108,14 @@ def main() -> int:
         print(f"error: no entries found in {path} — check it follows the MISTAKES.md format", file=sys.stderr)
         return 1
 
-    clusters = cluster_by_root_cause(entries, args.threshold)
+    # A promoted entry already has a permanent rule; re-flagging it as a "new"
+    # candidate on every future scan would eventually cause a duplicate/near-
+    # duplicate rule to get written under AGENT_AUTO_IMPROVE=1. unrouted and
+    # routed entries still need to count — they haven't been actioned yet.
+    active_entries = [e for e in entries if e.status.lower() != "promoted"]
+    excluded_count = len(entries) - len(active_entries)
+
+    clusters = cluster_by_root_cause(active_entries, args.threshold)
     repeated = [c for c in clusters if len(c) >= args.min_count]
     repeated.sort(key=len, reverse=True)
 
@@ -120,10 +131,14 @@ def main() -> int:
             }
             for group in repeated
         ]
-        print(json.dumps({"total_entries": len(entries), "repeated_groups": out}, indent=2))
+        print(json.dumps({
+            "total_entries": len(entries),
+            "excluded_promoted": excluded_count,
+            "repeated_groups": out,
+        }, indent=2))
         return 0
 
-    print(f"Scanned {len(entries)} entries in {path}")
+    print(f"Scanned {len(entries)} entries in {path} ({excluded_count} already-promoted excluded)")
     if not repeated:
         print(f"No root cause repeats {args.min_count}+ times yet.")
         return 0

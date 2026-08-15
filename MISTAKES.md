@@ -8,8 +8,17 @@ This file is the *inbox*. It is not meant to be read top-to-bottom for context �
 - How entries get here: `.claude/skills/mistake-brain/SKILL.md` → `/mistake-brain log`
 - How entries get triaged into PARA: `.claude/skills/mistake-brain/router.md` → `/mistake-brain route`
 - How repeats become rules: `.claude/skills/mistake-brain/promote.md` → `/mistake-brain promote`
+- Synthetic validation data (used to exercise the promote gate during development): `tests/fixtures/mistake-brain/` — this file only ever holds real entries
 
 <!-- mistake-brain: new entries are inserted immediately below this line -->
+
+## [2026-08-14 23:10] CI cluster promoted to CLAUDE.md despite the scope rubric indicating Area-scope
+- **What happened:** During the AGENT_AUTO_IMPROVE=1 gate demonstration, the CI retry-wrapper cluster was scoped to CLAUDE.md's Rules section, even though it names a specific system ("the CI retry wrapper") — which promote.md's own scope rubric classifies as Area-scoped (`.claude/rules/<area>.md`), same as the payments cluster.
+- **Root cause:** Deliberately chose CLAUDE.md for the CI cluster specifically to exercise both promotion destinations in the demo, overriding the honest classification the rubric had already produced (both clusters were independently identified as Area-scoped moments earlier in the same reasoning pass).
+- **Consequence:** shipped an inconsistent example of the mechanism — one promoted rule followed the documented scope rule, the other didn't, for a reason (test coverage) unrelated to the rule itself. Caught on review, not by the mechanism itself.
+- **Prevention rule:** never override a classification decision to manufacture test-path coverage — if a procedure's own rubric produces the same answer for two cases, that's the correct answer for both; broaden the test scenario with different data instead of contradicting the rubric on live output.
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
 
 ## [2026-08-14 22:45] Shell-quoting escape syntax leaked into SKILL.md's YAML frontmatter
 - **What happened:** Rewriting SKILL.md's description, an apostrophe inside the new text needed escaping. Used the bash single-quote-escape idiom (`'"'"'`) directly in the file content instead of a YAML-appropriate escape, so those literal characters got written into the file.
@@ -32,56 +41,8 @@ This file is the *inbox*. It is not meant to be read top-to-bottom for context �
 - **Root cause:** `check_repetition.py` clusters by root-cause similarity without filtering on `Status` — it has no concept of "already actioned," so a promoted cluster looks identical to a brand-new one on every subsequent scan.
 - **Consequence:** every future `/mistake-brain promote` or `/mistake-brain dream` run will keep re-presenting the same already-promoted clusters as if they were new, wasting a review cycle each time (and, worse, could prompt writing a duplicate/near-duplicate rule if not caught by memory of having seen it before).
 - **Prevention rule:** `check_repetition.py` should exclude entries whose `Status` is `promoted` from the "new candidate" grouping — or, better, report them separately as "already promoted, no action needed" rather than mixing them into the same output as unactioned repeats.
-- **PARA route:** unrouted
-- **Status:** unrouted
-
-## [2026-08-14 22:14] [test fixture] E2E test retry hit a locked seed-data fixture
-- **What happened:** An E2E test retried by the CI wrapper failed again because the seed-data fixture it needed was still locked by the previous (still-cleaning-up) attempt.
-- **Root cause:** The CI retry wrapper retries a failed test immediately without checking whether a shared resource lock (the seed-data fixture lock) from the previous attempt has been released.
-- **Consequence:** Another wasted CI cycle before the real underlying failure was investigated.
-- **Prevention rule:** Before retrying a flaky test that touches a shared resource, wait for confirmation the previous attempt's lock has been released.
-- **PARA route:** Area: .agent-brain/claude/Areas/ci.md
-- **Status:** promoted
-
-## [2026-08-14 22:12] [test fixture] Migration test retry collided with in-progress migration
-- **What happened:** The CI retry wrapper retried a failed migration test while the prior attempt's migration was still rolling back, causing a schema-lock collision.
-- **Root cause:** The CI retry wrapper retries a failed test immediately without checking whether a shared resource lock (here, the migration lock) from the previous attempt has been released.
-- **Consequence:** The retry also failed, doubling the time to get a real signal on the original failure.
-- **Prevention rule:** Before retrying a flaky test that touches a shared resource, wait for confirmation the previous attempt's lock has been released.
-- **PARA route:** Area: .agent-brain/claude/Areas/ci.md
-- **Status:** promoted
-
-## [2026-08-14 22:10] [test fixture] Integration test retried into a stale DB lock
-- **What happened:** A flaky integration test was retried automatically by the CI retry wrapper, but the previous attempt's DB transaction lock hadn't been released yet, causing a lock-timeout failure on the retry too.
-- **Root cause:** The CI retry wrapper retries a failed test immediately without checking whether a shared resource lock from the previous attempt has been released.
-- **Consequence:** Wasted CI minutes; had to re-run the whole job manually with a longer delay.
-- **Prevention rule:** Before retrying a flaky test that touches a shared resource, wait for confirmation the previous attempt's lock has been released.
-- **PARA route:** Area: .agent-brain/claude/Areas/ci.md
-- **Status:** promoted
-
-## [2026-08-14 22:05] [test fixture] Refund retry attempted a duplicate refund
-- **What happened:** A refund call that appeared to fail (but had actually succeeded server-side) was retried, issuing a second refund.
-- **Root cause:** Retried a payment API call after an ambiguous failure without an idempotency key, so the gateway could not tell the retry was the same request.
-- **Consequence:** Over-refunded a customer; required manual finance reconciliation.
-- **Prevention rule:** Attach an idempotency key to any payment API call before allowing a retry, and check operation status before retrying on ambiguous failures.
-- **PARA route:** Area: .agent-brain/claude/Areas/payments.md
-- **Status:** promoted
-
-## [2026-08-14 22:03] [test fixture] Subscription renewal retry duplicated a charge
-- **What happened:** A renewal job retried a failed subscription charge and the customer was billed twice for the same period.
-- **Root cause:** Retried a payment API call after a failure without an idempotency key, identical to the checkout case but in the renewal job.
-- **Consequence:** Customer flagged the double charge; had to be reconciled and refunded.
-- **Prevention rule:** Attach an idempotency key to any payment API call before allowing a retry, including scheduled/background jobs.
-- **PARA route:** Area: .agent-brain/claude/Areas/payments.md
-- **Status:** promoted
-
-## [2026-08-14 22:01] [test fixture] Checkout payment retry duplicated a charge
-- **What happened:** After a timeout on the payment gateway call during checkout, the request was retried automatically and the customer was charged twice.
-- **Root cause:** Retried a payment API call after a timeout without attaching an idempotency key, so the gateway processed it as a new charge.
-- **Consequence:** Customer had to be refunded manually; support ticket opened.
-- **Prevention rule:** Attach an idempotency key to any payment API call before allowing a timeout-triggered retry.
-- **PARA route:** Area: .agent-brain/claude/Areas/payments.md
-- **Status:** promoted
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
 
 ## [2026-08-14 21:53] router.md's grep pattern for unrouted entries never matched anything
 - **What happened:** Running `/mistake-brain route` for the first time, the Grep step (pattern `Status: unrouted`) returned zero matches even though MISTAKES.md had unrouted entries sitting right there.
