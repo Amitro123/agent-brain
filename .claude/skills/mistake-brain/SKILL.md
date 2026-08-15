@@ -39,13 +39,14 @@ dream = periodic reflection across all of the above, run occasionally, not per-f
 
 ## Concurrency: single-writer assumption
 
-Every file this skill writes to — `MISTAKES.md`, everything under `.agent-brain/<agent>/`, `MEMORY.md`, and `.claude/rules/` — is designed for **single-writer-per-file access**. There is no locking mechanism here; `log`/`route`/`promote`/`dream` all read-then-write with no protection against a concurrent writer changing the file in between.
+Every file this skill writes to — `MISTAKES.md`, everything under `.agent-brain/<agent>/`, `MEMORY.md`, `CLAUDE.md`, and `.claude/rules/` — is designed for **single-writer-per-file access**. There is no locking mechanism here; `log`/`route`/`promote`/`dream` all read-then-write with no protection against a concurrent writer changing the file in between.
 
 This is fine under the assumption this skill was built for: one agent identity (`claude`), operating serially, one command at a time. It stops being fine the moment two agent *sessions* run `mistake-brain` concurrently against the same file — e.g. an `arch-lead` sub-agent and a `ui-designer` sub-agent both logging failures and routing at the same time. Two concurrent `route` passes reading `MISTAKES.md`, computing a diff, and writing it back can race and silently drop one of them; two concurrent `promote` passes under `AGENT_AUTO_IMPROVE=1` could both decide to write the same rule.
 
-If you're extending this to multiple concurrent named agents, you have two real options, not a default to fall back on:
+If you're extending this to multiple concurrent named agents, here are three real options, not a default to fall back on:
 1. **Keep each agent's namespace fully separate** — already true structurally for `.agent-brain/<agent-name>/` and `.claude/agent-memory/<agent-name>/MEMORY.md`, since each agent gets its own folder. This alone is sufficient as long as agents never share a *file*.
 2. **Add explicit serialization** before allowing concurrent `route`/`promote` passes on files that *are* shared across agents by design — the top-level `MISTAKES.md` and repo-wide `CLAUDE.md`/`.claude/rules/` are the ones that don't naturally partition per-agent.
+3. **Route all writes through a single orchestrating session** — instead of serializing at the file level, let sub-agents report findings back to one coordinator that's the only thing that ever actually writes to the shared files. Simpler to reason about than per-file locking, at the cost of that orchestrator becoming a bottleneck.
 
 Don't assume this is handled — it isn't, on purpose, because the single-agent-serial case is what this skill was actually built and tested against.
 
