@@ -9,7 +9,7 @@ A fresh `MISTAKES.md` looks like this — the full header, no entries below the 
 ```md
 # MISTAKES.md
 
-Raw, append-only log of failures, corrections, and reverted changes for this agent. Newest entries go directly below this header — never edit or delete a past entry's content, only update its `Status` and `PARA route` fields as it gets processed.
+Raw, append-only log for this agent — despite the name, not just failures. Every entry has a `Type`: `mistake` (a failure, correction, or reverted change), `success` (a pattern that worked and is worth repeating), `decision` (a real choice made between alternatives, worth remembering why), or `handoff` (context a future session needs to pick up cold). An entry with no `Type` field is an older, pre-schema entry — treat it as `Type: mistake`. Newest entries go directly below this header — never edit or delete a past entry's content, only update its `Status` and `PARA route` fields as it gets processed.
 
 This file is the *inbox*. It is not meant to be read top-to-bottom for context — durable lessons live in `.agent-brain/` (see `.claude/agent-memory/<agent>/MEMORY.md` for the index). This file exists so nothing gets lost before it's been triaged.
 
@@ -28,7 +28,7 @@ To log the first entry, either let the skill trigger automatically (unreliable r
 /mistake-brain log <one-line description of what happened>
 ```
 
-That dispatches to `SKILL.md`'s `log` procedure: it fills in the four-field template (What happened / Root cause / Consequence / Prevention rule) from `references/format-spec.md` and inserts it right below the marker. `PARA route` and `Status` both start as `unrouted` — nothing else happens automatically. `route`, `promote`, and `dream` are separate, deliberately not fused into `log` (see `SKILL.md`'s `log` section for why: logging should be a fast, uninterrupting side effect of doing the actual work).
+That dispatches to `SKILL.md`'s `log` procedure: it picks a `Type` (`mistake`/`success`/`decision`/`handoff`) and fills in that type's template from `references/format-spec.md` — every type shares `What happened` plus a `Type`-specific set of fields (e.g. `Root cause`/`Consequence`/`Prevention rule` for a mistake) — and inserts it right below the marker. `PARA route` and `Status` both start as `unrouted` — nothing else happens automatically. `route`, `promote`, and `dream` are separate, deliberately not fused into `log` (see `SKILL.md`'s `log` section for why: logging should be a fast, uninterrupting side effect of doing the actual work).
 
 You can run `/mistake-brain route` any time after that first entry exists — even with just one entry, it'll correctly classify it into a PARA file. There's no minimum batch size for `route` to be useful; the "wait for volume" constraint is specific to `promote` and `dream`.
 
@@ -45,10 +45,12 @@ None of this means the mechanism isn't working. It means the mechanism is workin
 ## When `promote` starts being useful
 
 `promote` calls `scripts/check_repetition.py`, which has two real, literal thresholds you can check yourself in the script:
-- `--min-count`, default **3** — a root cause needs to appear 3 times (or 2 times plus one match in `MISTAKES-archive.md`, via `promote.md`'s archive-fallback step) before it's even reported as a candidate.
-- `--threshold`, default **0.6** — a text-similarity score (0–1) between two entries' `Root cause` fields; below this, they're treated as different failures, not the same one repeating.
+- `--min-count`, default **3** — a root cause (mistakes) or a success pattern (successes) needs to appear 3 times (or 2 times plus one match in `MISTAKES-archive.md`, via `promote.md`'s archive-fallback step) before it's even reported as a candidate.
+- `--threshold`, default **0.6** — a text-similarity score (0–1) between two entries' clustering field (`Root cause` for mistakes, `Success pattern` for successes, never compared across the two); below this, they're treated as different patterns, not the same one repeating.
 
-In practice this means: `promote` has nothing to offer until you've hit the *same* underlying bug three separate times, worded similarly enough in the `Root cause` field for the similarity check to recognize them as the same thing (see `references/format-spec.md`'s guidance on writing root causes consistently — this is the field that determines whether `promote` can ever find your repeats). For most projects, that's realistically **weeks**, not days — three-in-a-row-on-day-one would be an unusually bad week, not the normal onboarding path.
+`decision` and `handoff` entries are never clustered — a decision or a handoff isn't a repeating pattern by nature, see `format-spec.md`.
+
+In practice this means: `promote` has nothing to offer until you've hit the *same* underlying mistake or success three separate times, worded similarly enough in the clustering field for the similarity check to recognize them as the same thing (see `references/format-spec.md`'s guidance on writing these fields consistently — this is what determines whether `promote` can ever find your repeats). For most projects, that's realistically **weeks**, not days — three-in-a-row-on-day-one would be an unusually eventful week, not the normal onboarding path.
 
 ## When `dream` starts being useful
 
@@ -58,7 +60,7 @@ In practice this means: `promote` has nothing to offer until you've hit the *sam
 
 **Q: Why didn't the skill trigger automatically after I fixed a bug?**
 
-Because it's currently unreliable at this specific job — two real measurements, not one, and both are recorded here so the numbers don't just float around as unsupported claims:
+Because it's currently unreliable at this specific job — two real measurements, not one, and both are recorded here so the numbers don't just float around as unsupported claims. **Caveat on both:** they were measured against the description as it stood for mistake-triggering only, before the `Type` schema (mistake/success/decision/handoff) was added — the description was later broadened to also cover success/decision/handoff triggers (see `SKILL.md`) without touching the original mistake-triggering wording these numbers are based on, so the *mistake* recall figures below should still be directionally accurate, but they've never been re-measured against the current text, and there's no equivalent measurement yet for success/decision/handoff triggering at all.
 
 1. **Skill description alone, no other reinforcement.** 20-query eval set (60/40 train/validation split), 3 isolated runs per query via `claude -p --session-id <fresh> --no-session-persistence` (genuine isolation — no shared context with any other session). Should-trigger recall: **1/11 (9%)** before rewriting the description, **3/11 (27%)** after. Should-not-trigger: a clean 9/9 in both runs — the gap is specifically under-triggering, not false positives.
 
@@ -80,4 +82,4 @@ Because it's currently unreliable at this specific job — two real measurements
 
 Both are small-sample, directional measurements (11 queries), not statistically tight numbers — treat the shape of the result (CLAUDE.md reinforcement measurably helps) as more trustworthy than the exact percentage. Two queries still failed outright even with CLAUDE.md reinforced ("no wait, don't do it that way..." and "why does this keep happening..." — both indirect/conversational phrasings rather than a direct statement that something was just fixed).
 
-**Workaround, until this improves further:** don't wait for automatic triggering. Explicitly run `/mistake-brain log <description>` yourself right after any real fix, revert, or correction. This matters more, not less, during the first weeks — a missed entry early on isn't just one lost data point, it's one less instance toward the 3x threshold that makes `promote` useful at all.
+**Workaround, until this improves further:** don't wait for automatic triggering. Explicitly run `/mistake-brain log <description>` yourself right after any real fix, revert, correction, notable success, decision, or handoff. This matters more, not less, during the first weeks — a missed entry early on isn't just one lost data point, it's one less instance toward the 3x threshold that makes `promote` useful at all (for `mistake`/`success` entries — `decision`/`handoff` entries aren't threshold-gated, but a missed one is still lost context for a future session).

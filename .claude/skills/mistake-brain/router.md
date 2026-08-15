@@ -2,6 +2,8 @@
 
 Invoked by `/mistake-brain route`. Goal: take every entry in `MISTAKES.md` still marked `Status: unrouted` and give it a permanent home in `.agent-brain/<agent>/`, so the raw log can stay a fast inbox instead of the thing anyone has to actually search.
 
+Applies uniformly to all four `Type`s (`mistake`, `success`, `decision`, `handoff`) — the PARA decision tree below doesn't branch on `Type` at all. A `handoff` entry gets exactly the same routing treatment as a `mistake` entry; there's no separate lifecycle or destination for it (see `SKILL.md`'s Concurrency section for why a special handoff status was rejected).
+
 ## Procedure
 
 MISTAKES.md is append-only — routed and promoted entries stay in it, they just get their `Status` flipped in place. Left unchecked that means both the file and the cost of reading it grow forever, even though only a shrinking fraction of it (the still-unrouted entries) is ever relevant to a route pass. Two independent fixes, run in order:
@@ -13,10 +15,10 @@ MISTAKES.md is append-only — routed and promoted entries stay in it, they just
    ```md
    ## [YYYY-MM-DD] <short title, can reuse the MISTAKES.md title>
    - Added: YYYY-MM-DD HH:MM
-   <the prevention rule, rewritten as an imperative instruction, 1-2 sentences>
+   <the actionable takeaway, rewritten as an imperative instruction, 1-2 sentences>
    Source: mistake log entry [YYYY-MM-DD HH:MM] <title>
    ```
-   Insert newest-first within that file too. Cite the entry by date and title, not by file path — `compose_mistakes.py` may later move the entry itself from `MISTAKES.md` into `MISTAKES-archive.md`, and the citation should stay meaningful either way.
+   The one-line takeaway comes from whichever field carries it for that entry's `Type` (see `references/format-spec.md`): `Prevention rule` for `mistake`, `Repeat guidance` for `success`, `Rationale` for `decision`, `Next steps` for `handoff`. Insert newest-first within that file too. Cite the entry by date and title, not by file path — `compose_mistakes.py` may later move the entry itself from `MISTAKES.md` into `MISTAKES-archive.md`, and the citation should stay meaningful either way.
 
    The `Added` field is what lets `dream.md` assess an individual entry's freshness — independent of `MEMORY.md`'s own per-file "last updated" date, which only tells you when a file was *last touched at all*, not how old any given entry inside it is. A PARA file can look "recently updated" in `MEMORY.md` because of one new entry while everything else in it is stale; `Added` is the signal that catches that.
 5. Go back to `MISTAKES.md` and, for each routed entry, use a targeted `Edit` to update its two fields in place (nothing else in the entry changes) — `Edit` sends only the diff, not the whole file, so this stays cheap regardless of how large MISTAKES.md has grown:

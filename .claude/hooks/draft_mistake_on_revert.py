@@ -103,6 +103,7 @@ def main() -> int:
 
     entry_block = (
         f"## [{now}] [auto-draft] Revert-like command detected: `{safe_command}`\n"
+        f"- **Type:** mistake\n"
         f"- **What happened:** [auto-draft, needs detail] Ran a revert/reset-like command "
         f"(`{safe_command}`) — this hook only detected *that* something was reverted, not "
         f"*why*. Fill in the real story.\n"

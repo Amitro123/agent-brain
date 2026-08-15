@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Scan MISTAKES.md for root causes that repeat 3+ times.
+"""Scan MISTAKES.md for repeated patterns — mistakes or successes — that
+have happened 3+ times.
 
-Used by /mistake-brain promote to decide which failures have happened
-often enough to justify a hard rule in CLAUDE.md or .claude/rules/.
+Used by /mistake-brain promote to decide which mistakes or success
+patterns have repeated often enough to justify a hard rule in CLAUDE.md
+or .claude/rules/. Clustering key depends on entry Type: `Root cause`
+for Type: mistake (or entries with no Type field, treated as mistake
+for backward compatibility), `Success pattern` for Type: success.
+Type: decision and Type: handoff entries have no clustering key and are
+never clustered — a decision or a handoff is a record of a single
+judgment call or a context snapshot, not a repeating pattern.
+
 Entries with Status: promoted are excluded from clustering — they
 already have a rule, so re-flagging them would eventually cause a
 duplicate rule to get written under AGENT_AUTO_IMPROVE=1. unrouted and
@@ -32,8 +40,21 @@ class Entry:
     fields: dict = field(default_factory=dict)
 
     @property
-    def root_cause(self) -> str:
-        return self.fields.get("Root cause", "")
+    def type(self) -> str:
+        # No Type field = pre-schema entry = treated as mistake (backward compat).
+        return self.fields.get("Type", "mistake").strip().lower() or "mistake"
+
+    @property
+    def cluster_key(self) -> str:
+        """The text clustering groups on, chosen by entry Type. Empty string
+        means "never cluster this entry" — decision/handoff entries return
+        empty on purpose, same as a mistake entry with a blank Root cause
+        was always silently skipped before Type existed."""
+        if self.type == "mistake":
+            return self.fields.get("Root cause", "")
+        if self.type == "success":
+            return self.fields.get("Success pattern", "")
+        return ""
 
     @property
     def status(self) -> str:
@@ -66,15 +87,21 @@ def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
-def cluster_by_root_cause(entries: list[Entry], threshold: float) -> list[list[Entry]]:
+def cluster_by_key(entries: list[Entry], threshold: float) -> list[list[Entry]]:
     """Greedy single-pass clustering: each entry joins the first cluster whose
     representative (first member) it's similar enough to, else starts a new one.
     Good enough for the small, mostly-manually-written logs this operates on —
-    not meant to be a general-purpose text clustering algorithm."""
+    not meant to be a general-purpose text clustering algorithm.
+
+    Clusters only ever contain entries of the same Type: mistake entries
+    cluster on Root cause, success entries cluster on Success pattern, and
+    the two are clustered separately (via separate calls) so a mistake never
+    ends up in the same evidence group as a success just because the two
+    texts happen to read similarly."""
     clusters: list[list[Entry]] = []
     reps: list[str] = []
     for entry in entries:
-        norm = normalize(entry.root_cause)
+        norm = normalize(entry.cluster_key)
         if not norm:
             continue
         placed = False
@@ -115,17 +142,24 @@ def main() -> int:
     active_entries = [e for e in entries if e.status.lower() != "promoted"]
     excluded_count = len(entries) - len(active_entries)
 
-    clusters = cluster_by_root_cause(active_entries, args.threshold)
+    # Cluster mistake and success entries separately so evidence groups never
+    # mix the two — see cluster_by_key's docstring. decision/handoff entries
+    # have an empty cluster_key and are silently skipped by cluster_by_key,
+    # same as an entry with a blank Root cause always was.
+    mistake_entries = [e for e in active_entries if e.type == "mistake"]
+    success_entries = [e for e in active_entries if e.type == "success"]
+    clusters = cluster_by_key(mistake_entries, args.threshold) + cluster_by_key(success_entries, args.threshold)
     repeated = [c for c in clusters if len(c) >= args.min_count]
     repeated.sort(key=len, reverse=True)
 
     if args.json:
         out = [
             {
+                "type": group[0].type,
                 "count": len(group),
-                "representative_root_cause": group[0].root_cause,
+                "representative_cluster_key": group[0].cluster_key,
                 "entries": [
-                    {"date": e.date, "title": e.title, "root_cause": e.root_cause, "status": e.status}
+                    {"date": e.date, "title": e.title, "cluster_key": e.cluster_key, "status": e.status}
                     for e in group
                 ],
             }
@@ -140,12 +174,12 @@ def main() -> int:
 
     print(f"Scanned {len(entries)} entries in {path} ({excluded_count} already-promoted excluded)")
     if not repeated:
-        print(f"No root cause repeats {args.min_count}+ times yet.")
+        print(f"No mistake root cause or success pattern repeats {args.min_count}+ times yet.")
         return 0
 
-    print(f"\n{len(repeated)} root cause(s) repeating {args.min_count}+ times:\n")
+    print(f"\n{len(repeated)} pattern(s) repeating {args.min_count}+ times:\n")
     for group in repeated:
-        print(f"  [{len(group)}x] {group[0].root_cause}")
+        print(f"  [{len(group)}x, {group[0].type}] {group[0].cluster_key}")
         for e in group:
             print(f"      - {e.date}  {e.title}  (status: {e.status or 'unknown'})")
         print()

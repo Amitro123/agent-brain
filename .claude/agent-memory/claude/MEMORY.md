@@ -5,13 +5,13 @@ This is the entry point into this agent's PARA memory (`.agent-brain/claude/`). 
 Format per line: `- [PARA-type] file — one-line summary (N lessons, last updated YYYY-MM-DD)`
 
 ## Projects
-- [Project] Projects/mistake-brain-skill.md — bugs found while building/testing the mistake-brain skill itself (5 lessons, last updated 2026-08-14)
+- [Project] Projects/mistake-brain-skill.md — bugs found (and one decision recorded) while building/testing the mistake-brain skill itself, including the 4-entry-type generalization (9 lessons, last updated 2026-08-15)
 
 ## Areas
 _(none yet — the two Area files that briefly lived here were synthetic test-fixture data, relocated to `tests/fixtures/mistake-brain/agent-brain/claude/Areas/` on review; see Last dream below for what they were used to validate)_
 
 ## Resources
-_(none yet)_
+- [Resource] Resources/independent-review-before-commit.md — write a self-contained independent-reviewer prompt after any non-trivial change to a shared/durable artifact, confirmed as a repeatable success pattern (1 lesson, last updated 2026-08-15)
 
 ## Archives
 _(none yet)_
