@@ -1,6 +1,6 @@
 # MISTAKES.md
 
-Raw, append-only log of failures, corrections, and reverted changes for this agent. Newest entries go directly below this header — never edit or delete a past entry's content, only update its `Status` and `PARA route` fields as it gets processed.
+Raw, append-only log for this agent — despite the name, not just failures. Every entry has a `Type`: `mistake` (a failure, correction, or reverted change), `success` (a pattern that worked and is worth repeating), `decision` (a real choice made between alternatives, worth remembering why), or `handoff` (context a future session needs to pick up cold). An entry with no `Type` field is an older, pre-schema entry — treat it as `Type: mistake`. Newest entries go directly below this header — never edit or delete a past entry's content, only update its `Status` and `PARA route` fields as it gets processed.
 
 This file is the *inbox*. It is not meant to be read top-to-bottom for context — durable lessons live in `.agent-brain/` (see `.claude/agent-memory/<agent>/MEMORY.md` for the index). This file exists so nothing gets lost before it's been triaged.
 
@@ -12,13 +12,31 @@ This file is the *inbox*. It is not meant to be read top-to-bottom for context �
 
 <!-- mistake-brain: new entries are inserted immediately below this line -->
 
+## [2026-08-15 17:00] Kept the MISTAKES.md filename when generalizing to 4 entry types
+- **Type:** decision
+- **What happened:** While generalizing this skill's log from mistake-only to four types (mistake/success/decision/handoff), considered renaming the file (e.g. `EVENTS.md`, `MEMORY-LOG.md`) to match the broader scope, then decided against it.
+- **Rationale:** Renaming would break every existing cross-reference (SKILL.md, router.md, promote.md, dream.md, README.md, onboarding.md, the hook, git history) for a purely cosmetic gain — the `Type` field is what actually disambiguates an entry's kind, not the filename. A rename also risks looking like data migration is needed when it isn't; the file's content and format didn't change, only what's allowed inside it.
+- **Alternatives considered:** `EVENTS.md` (rejected — no clearer than the status quo, and a pure rename cost with no functional benefit); `MEMORY-LOG.md` (rejected — same reasoning, plus it duplicates what `.agent-brain/`'s `MEMORY.md` name already suggests, inviting confusion between the two).
+- **Impact:** Zero migration cost; every existing link and mental model of "MISTAKES.md is the inbox" stays valid. Docs now explain the name/scope mismatch explicitly (see README.md) instead of leaving it to look like an oversight.
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
+
+## [2026-08-15 17:00] Independent review-agent-prompt agreement kept catching real bugs before commit
+- **Type:** success
+- **What happened:** After adopting a standing agreement to write a self-contained review-agent prompt after every change to this skill, independent verification passes repeatedly surfaced real, previously-unnoticed issues before they reached a commit — including a missing evidence trail for a reported metric, an inconsistent promotion-scope decision, and a regex matching quoted example text.
+- **Success pattern:** After any non-trivial change to a shared/durable artifact (a skill, a shared script, documentation making a factual claim), write a self-contained prompt for an independent reviewer — one with no access to the implementer's own reasoning — and only consider the change done after that review runs, not after the implementer's own read-through.
+- **Impact:** Caught at least three real defects (unsupported metric claim, inconsistent scope decision, self-referential regex bug) that a same-session self-review had already missed once each — each would have shipped otherwise.
+- **Repeat guidance:** Keep this as a standing step for future mistake-brain changes (and consider it for other durable-artifact work generally, once/if it recurs outside this project) — don't let it quietly lapse once things "feel" stable.
+- **PARA route:** Resource: .agent-brain/claude/Resources/independent-review-before-commit.md
+- **Status:** routed
+
 ## [2026-08-15 11:28] draft_mistake_on_revert.py's own regex matched its test payload's quoted example text
 - **What happened:** While manually testing the new PostToolUse hook (which drafts a MISTAKES.md entry after a revert-like git command), the test command itself — a Bash one-liner that `echo`'d a JSON payload *containing* the string `git reset --hard HEAD~1` as quoted example text — matched the hook's own regex and drafted a bogus entry into the real MISTAKES.md.
 - **Root cause:** The hook matched its revert-pattern regex against the raw Bash command string with no distinction between "this text is actually being invoked as a command" and "this text merely appears, quoted, inside a larger command" (an echo, a JSON literal, a heredoc). This is the exact same class of bug already logged twice before in this project (2026-08-14 21:53 and 22:32) — an unanchored/unscoped pattern match firing on quoted example text instead of the real thing — reproduced in a new script because the lesson wasn't generalized into a checklist, just fixed twice in the one place it had already happened.
 - **Consequence:** would have permanently baked a fake, self-referential entry into the project's own mistake log if not caught by manually reviewing `git diff` before committing — ironic for a tool whose entire purpose is catching exactly this kind of thing.
 - **Prevention rule:** when matching a pattern against a shell command string (not just a markdown field, which is where this bit us the first two times), strip quoted spans before matching — quoted example text inside echo/printf/heredoc is functionally identical to the "quoted illustration inside a free-text field" problem, just in a different file format. More generally: when the same *shape* of bug (unscoped pattern matching hitting quoted example text) recurs a third time across unrelated files, that's exactly what `/mistake-brain promote` is for — checking whether "always test pattern matches against realistic input, including text that merely mentions the pattern" deserves to become a standing rule, not just three separate one-off fixes.
-- **PARA route:** unrouted
-- **Status:** unrouted
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
 
 ## [2026-08-14 23:10] CI cluster promoted to CLAUDE.md despite the scope rubric indicating Area-scope
 - **What happened:** During the AGENT_AUTO_IMPROVE=1 gate demonstration, the CI retry-wrapper cluster was scoped to CLAUDE.md's Rules section, even though it names a specific system ("the CI retry wrapper") — which promote.md's own scope rubric classifies as Area-scoped (`.claude/rules/<area>.md`), same as the payments cluster.
@@ -33,16 +51,16 @@ This file is the *inbox*. It is not meant to be read top-to-bottom for context �
 - **Root cause:** Reached for a shell-quoting technique while writing file content through a non-shell tool (Edit) — the two contexts don't share escaping rules, and the tool doesn't interpret shell syntax at all.
 - **Consequence:** would have shipped a SKILL.md with corrupted YAML frontmatter (visibly wrong to a human, but caught before commit by explicitly parsing it with a YAML loader rather than eyeballing the diff).
 - **Prevention rule:** after editing YAML frontmatter (or any structured/parseable format) with an escaped special character, validate by actually parsing it, not by visual inspection — and use the target format's own escape convention (YAML: double the quote), not a habit borrowed from a different context (shell).
-- **PARA route:** unrouted
-- **Status:** unrouted
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
 
 ## [2026-08-14 22:32] router.md's unrouted grep pattern false-matches quoted example text
 - **What happened:** Re-running the unrouted-detection grep during a dream pass found 2 matches instead of the expected 1. The second match was inside the "Root cause" field of the entry that documents the *original* grep-pattern bug — that field quotes the literal field text `- **Status:** unrouted` as an example, which the unanchored pattern happily matched too.
 - **Root cause:** The grep pattern `\*\*Status:\*\* unrouted` matches anywhere in the file, including mid-sentence inside a free-text field that merely quotes the pattern as an illustration — not just the actual structural field line at the end of an entry template.
 - **Consequence:** low real-world risk right now (the false match's `-B 5` context wouldn't parse as a valid entry so it'd likely just get skipped or error out downstream), but it's exactly the kind of silent-corruption risk that should be closed rather than left to luck, especially since a future entry could easily quote this same field name in its description again.
 - **Prevention rule:** anchor structural-field grep patterns to match the whole line (`^- \*\*Status:\*\*\s*unrouted\s*$`), not just a substring — so the pattern can only match the real field line, never a quotation of it inside another field's descriptive text.
-- **PARA route:** unrouted
-- **Status:** unrouted
+- **PARA route:** Project: .agent-brain/claude/Projects/mistake-brain-skill.md
+- **Status:** routed
 
 ## [2026-08-14 22:30] check_repetition.py keeps re-flagging already-promoted clusters
 - **What happened:** Running `/mistake-brain dream`, the repetition scan (step 2's promotion-candidate check) re-reported both the payments and CI clusters as fresh 3x candidates, even though both had already been promoted to rules minutes earlier in the same session.

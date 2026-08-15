@@ -2,6 +2,8 @@
 
 Supplement to the decision tree in `router.md`. These are the ambiguous cases spelled out end-to-end.
 
+The decision tree doesn't branch on entry `Type` — a `success`, `decision`, or `handoff` entry gets classified with exactly the same Project/Area/Resource/Archive questions as a `mistake` entry (see `router.md`'s intro). Examples 1-4 below all happen to be `mistake` entries because that's the type with the most historical examples to draw from, but the same reasoning applies unchanged to the other three types — see Example 5 for one worked non-mistake case.
+
 Every PARA entry `router.md` writes carries its own `Added: YYYY-MM-DD HH:MM` field (see `router.md` step 4) — a per-entry timestamp independent of `MEMORY.md`'s per-file "last updated" date. It's what `dream.md` uses to tell a genuinely stale file apart from a stale file that just got one recent entry, and to notice when a burst of entries in a narrow time window hints a file should be split. None of the classification logic below depends on it — it's a freshness signal for `dream`, not a routing input.
 
 ## Example 1 — Project vs. Area
@@ -30,3 +32,9 @@ Not a code problem, not something a rule can prevent, and the specific provider/
 > Entry: "In the checkout-v2 branch, retried a failed payment call without idempotency, causing a double charge."
 
 This is simultaneously a Project fact (happened in checkout-v2) and hints at a general principle (retries need idempotency keys). Per router.md: route to the more specific bucket first — **Project**, `Projects/checkout-v2.md` — and let it prove itself general later. If the same root cause (retrying non-idempotent operations) shows up again in a different project or area, that's when `/mistake-brain promote` or `/mistake-brain dream` should surface it as a Resource/rule candidate, not before.
+
+## Example 5 — a non-mistake type (Area)
+
+> Entry: `Type: decision` — "Chose polling over a webhook for the CI status check because no public endpoint was reachable in this environment."
+
+Same test as Example 1: is this tied to a specific piece of work that ends when the work ends, or a domain the agent will keep coming back to? CI status checking isn't specific to any one project — it'll come up again the next time a CI-integration decision needs making, in whatever project is current then. → **Area**: `.agent-brain/claude/Areas/ci.md`. The `Type` field didn't change the reasoning at all — only the field being routed (`Rationale`, per `format-spec.md`'s `decision` template) differs from a `mistake` entry's `Root cause`.
