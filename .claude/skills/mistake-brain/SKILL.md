@@ -3,6 +3,9 @@ name: mistake-brain
 description: 'Use when: a fix just landed, a bug got reverted, the same bug happened again, a regression needs its root cause traced, or the user corrects your approach mid-session. Invoke this proactively, without being asked, to log the failure to MISTAKES.md (what happened / root cause / consequence / prevention rule), classify it into PARA memory (.agent-brain/<agent>/Projects|Areas|Resources|Archives), and — only once the same root cause has repeated 3+ times — propose a hard rule for CLAUDE.md or .claude/rules/ (never written without explicit approval unless AGENT_AUTO_IMPROVE=1). Also use for the explicit commands `/mistake-brain log`, `/mistake-brain route`, `/mistake-brain promote`, and `/mistake-brain dream`. Do not use when: there''s no fix, revert, repeat failure, or correction in play — plain feature requests, general Q&A, or a first-time issue with no established pattern yet to log against don''t need this skill.'
 ---
 
+<!-- Keep this file's body under 500 lines (the progressive-disclosure cap skills are meant to respect) —
+     push detail into references/ instead of growing this file. Check with: wc -l SKILL.md -->
+
 # mistake-brain
 
 Persistent failure memory for this agent. It combines two ideas into one pipeline:
@@ -33,6 +36,18 @@ dream = periodic reflection across all of the above, run occasionally, not per-f
 | `CLAUDE.md` / `.claude/rules/*.md` | Hard rules. Only ever written after a 3+ repeat *and* explicit user approval (see Safety below). |
 
 `<agent>` defaults to `claude`, matching the folders already created (`.agent-brain/claude/`, `.claude/agent-memory/claude/`). If this repo is ever shared by more than one distinct agent persona, give each its own `<agent>` folder rather than mixing memories.
+
+## Concurrency: single-writer assumption
+
+Every file this skill writes to — `MISTAKES.md`, everything under `.agent-brain/<agent>/`, `MEMORY.md`, and `.claude/rules/` — is designed for **single-writer-per-file access**. There is no locking mechanism here; `log`/`route`/`promote`/`dream` all read-then-write with no protection against a concurrent writer changing the file in between.
+
+This is fine under the assumption this skill was built for: one agent identity (`claude`), operating serially, one command at a time. It stops being fine the moment two agent *sessions* run `mistake-brain` concurrently against the same file — e.g. an `arch-lead` sub-agent and a `ui-designer` sub-agent both logging failures and routing at the same time. Two concurrent `route` passes reading `MISTAKES.md`, computing a diff, and writing it back can race and silently drop one of them; two concurrent `promote` passes under `AGENT_AUTO_IMPROVE=1` could both decide to write the same rule.
+
+If you're extending this to multiple concurrent named agents, you have two real options, not a default to fall back on:
+1. **Keep each agent's namespace fully separate** — already true structurally for `.agent-brain/<agent-name>/` and `.claude/agent-memory/<agent-name>/MEMORY.md`, since each agent gets its own folder. This alone is sufficient as long as agents never share a *file*.
+2. **Add explicit serialization** before allowing concurrent `route`/`promote` passes on files that *are* shared across agents by design — the top-level `MISTAKES.md` and repo-wide `CLAUDE.md`/`.claude/rules/` are the ones that don't naturally partition per-agent.
+
+Don't assume this is handled — it isn't, on purpose, because the single-agent-serial case is what this skill was actually built and tested against.
 
 ## Command dispatch
 
@@ -89,6 +104,8 @@ See `promote.md`. In short: run `scripts/check_repetition.py` over MISTAKES.md, 
 See `references/dream.md`. A periodic, not per-failure, pass: read MEMORY.md and all PARA files, look for stale Projects that should archive, Areas that have grown unwieldy, and anything promote.md would flag — then update MEMORY.md's summaries and report findings to the user. Never rewrites PARA content without confirmation; MEMORY.md's own index/summary section is the one thing it's allowed to regenerate freely, since it's derived data.
 
 ## Safety: confirm before writing durable rules
+
+**Design principle, stated explicitly rather than left implicit:** `route` writes to `.agent-brain/` without requiring user approval, because those writes are *knowledge classification*, not a behavior change — reversible, low-stakes, easily corrected on the next `dream` pass. `promote` requires explicit approval (or `AGENT_AUTO_IMPROVE=1`) before writing to `CLAUDE.md` or `.claude/rules/`, because those writes *change agent behavior going forward*, for every future session, not just this one. The asymmetry is deliberate — it's not that `promote` is "more important," it's that its writes are a different kind of thing.
 
 `log` and `route` only ever touch `MISTAKES.md` and `.agent-brain/`, which are low-stakes, easily-corrected working memory — write to them freely.
 

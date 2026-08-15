@@ -2,6 +2,8 @@
 
 Supplement to the decision tree in `router.md`. These are the ambiguous cases spelled out end-to-end.
 
+Every PARA entry `router.md` writes carries its own `Added: YYYY-MM-DD HH:MM` field (see `router.md` step 4) — a per-entry timestamp independent of `MEMORY.md`'s per-file "last updated" date. It's what `dream.md` uses to tell a genuinely stale file apart from a stale file that just got one recent entry, and to notice when a burst of entries in a narrow time window hints a file should be split. None of the classification logic below depends on it — it's a freshness signal for `dream`, not a routing input.
+
 ## Example 1 — Project vs. Area
 
 > Entry: "Used the wrong env var name for the payments API key while working on the checkout-v2 branch."
