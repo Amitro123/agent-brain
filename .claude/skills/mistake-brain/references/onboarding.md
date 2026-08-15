@@ -58,6 +58,26 @@ In practice this means: `promote` has nothing to offer until you've hit the *sam
 
 **Q: Why didn't the skill trigger automatically after I fixed a bug?**
 
-Because it's currently unreliable at this specific job. A real, measured trigger-rate evaluation (20 queries, 60/40 train/validation split, described in the skill's development history) found should-trigger recall around **27%** — meaning roughly 3 in 4 real "I just fixed X" or "same bug again" moments won't cause Claude to invoke `mistake-brain` on its own, even though the description was rewritten specifically to improve this. Should-not-trigger accuracy is solid (no false positives observed), the gap is specifically under-triggering.
+Because it's currently unreliable at this specific job — two real measurements, not one, and both are recorded here so the numbers don't just float around as unsupported claims:
 
-**Workaround, until this improves:** don't wait for automatic triggering. Explicitly run `/mistake-brain log <description>` yourself right after any real fix, revert, or correction. This matters more, not less, during the first weeks — a missed entry early on isn't just one lost data point, it's one less instance toward the 3x threshold that makes `promote` useful at all.
+1. **Skill description alone, no other reinforcement.** 20-query eval set (60/40 train/validation split), 3 isolated runs per query via `claude -p --session-id <fresh> --no-session-persistence` (genuine isolation — no shared context with any other session). Should-trigger recall: **1/11 (9%)** before rewriting the description, **3/11 (27%)** after. Should-not-trigger: a clean 9/9 in both runs — the gap is specifically under-triggering, not false positives.
+
+2. **Same description, plus reinforcing the identical instruction in `CLAUDE.md`** (which loads unconditionally into every session's context, unlike a skill description competing for the model's attention). Re-measured the same 11 should-trigger queries, 3 isolated runs each, majority-of-3 (≥2/3) counted as a trigger:
+   ```
+   [3/3] ok I just fixed the auth bug where the token wasn't being refreshed...
+   [3/3] wait this is the third time we've hit this same flaky CI test issue...
+   [3/3] I had to revert that migration change from yesterday, it broke prod again
+   [2/3] can you run /mistake-brain promote and see if anything qualifies
+   [0/3] no wait, don't do it that way, that's what caused the outage last time
+   [3/3] log this: I forgot to handle the null case again in the parser...
+   [3/3] we keep debugging the same regression in the payment service...
+   [1/3] run dream on the mistake memory, been a while since we reflected on it
+   [2/3] just reverted my last commit, the new caching logic broke the tests
+   [0/3] why does this keep happening, every time we deploy on Friday...
+   [2/3] the checkout retry bug from last month is back, same root cause...
+   ```
+   Recall (majority-of-3 ≥ 0.5 threshold): **8/11 = 73%**. Raw hit rate across all 33 individual runs: 22/33 ≈ 67%.
+
+Both are small-sample, directional measurements (11 queries), not statistically tight numbers — treat the shape of the result (CLAUDE.md reinforcement measurably helps) as more trustworthy than the exact percentage. Two queries still failed outright even with CLAUDE.md reinforced ("no wait, don't do it that way..." and "why does this keep happening..." — both indirect/conversational phrasings rather than a direct statement that something was just fixed).
+
+**Workaround, until this improves further:** don't wait for automatic triggering. Explicitly run `/mistake-brain log <description>` yourself right after any real fix, revert, or correction. This matters more, not less, during the first weeks — a missed entry early on isn't just one lost data point, it's one less instance toward the 3x threshold that makes `promote` useful at all.
